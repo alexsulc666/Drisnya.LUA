@@ -123,6 +123,14 @@ local function shouldIgnoreWrap(str)
     return str:find("^%[Гос") or str:find("^%[Реклама")
 end
 
+local policeColorTag = "{921111}"
+local policeTextColorTag = "{AA8070}"
+
+local function isPoliceLine(str)
+    return str:sub(1, 8) == policeColorTag
+end
+
+-- Обработка переноса строки с учётом логики для {921111}
 local function splitAndShowLongMessage(color, text, maxLenLocal)
     if shouldIgnoreWrap(text) then
         -- Не переносим такие строки, просто выводим как есть
@@ -135,6 +143,9 @@ local function splitAndShowLongMessage(color, text, maxLenLocal)
     local lastColor = colorTag
     local str = replaceAllCustomColors(text)
     local first = true
+
+    local policeLine = isPoliceLine(text)
+    local nickPattern = "(| Никнейм:%s*)([%w_]+)"
 
     if breakWords == 1 then
         -- Стиль: разрывать слова (старое поведение)
@@ -170,11 +181,23 @@ local function splitAndShowLongMessage(color, text, maxLenLocal)
                 part = lastColor .. part
             end
 
-            if first then
-                part = part .. lastColor .. "..."
-                first = false
+            if policeLine then
+                -- Особая логика для полицейского чата: троеточия и продолжение - цвет policeTextColorTag
+                if first then
+                    part = part .. policeTextColorTag .. "..."
+                    first = false
+                else
+                    part = policeTextColorTag .. "..." .. part .. policeTextColorTag .. "..."
+                end
+                -- Возвращаем цвет ника policeColorTag, если есть Никнейм:
+                part = part:gsub(nickPattern, "%1" .. policeColorTag .. "%2")
             else
-                part = lastColor .. "..." .. part .. lastColor .. "..."
+                if first then
+                    part = part .. lastColor .. "..."
+                    first = false
+                else
+                    part = lastColor .. "..." .. part .. lastColor .. "..."
+                end
             end
             part = replaceAllCustomColors(part)
             sampAddChatMessage(part, originalColor)
@@ -237,11 +260,21 @@ local function splitAndShowLongMessage(color, text, maxLenLocal)
                 part = lastColor .. part
             end
 
-            if first then
-                part = part .. lastColor .. "..."
-                first = false
+            if policeLine then
+                if first then
+                    part = part .. policeTextColorTag .. "..."
+                    first = false
+                else
+                    part = policeTextColorTag .. "..." .. part .. policeTextColorTag .. "..."
+                end
+                part = part:gsub(nickPattern, "%1" .. policeColorTag .. "%2")
             else
-                part = lastColor .. "..." .. part .. lastColor .. "..."
+                if first then
+                    part = part .. lastColor .. "..."
+                    first = false
+                else
+                    part = lastColor .. "..." .. part .. lastColor .. "..."
+                end
             end
             part = replaceAllCustomColors(part)
             sampAddChatMessage(part, originalColor)
@@ -263,8 +296,15 @@ local function splitAndShowLongMessage(color, text, maxLenLocal)
         if not part:find("^{[%xX][%xX][%xX][%xX][%xX][%xX]}") then
             part = lastColor .. part
         end
-        if not first then
-            part = lastColor .. "..." .. part
+        if policeLine then
+            if not first then
+                part = policeTextColorTag .. "..." .. part
+            end
+            part = part:gsub(nickPattern, "%1" .. policeColorTag .. "%2")
+        else
+            if not first then
+                part = lastColor .. "..." .. part
+            end
         end
         part = replaceAllCustomColors(part)
         sampAddChatMessage(part, originalColor)
@@ -284,9 +324,9 @@ function main()
 
     if autoEnable == 1 then
         enabled = true
-        sampAddChatMessage("{FFFFFF}[SunlessTextWrap] AutoEnable: {88FF88}ON", -1)
+        sampAddChatMessage("{FFFFFF}[SunlessTextWrap] Автовключение: {88FF88}ON", -1)
     else
-        sampAddChatMessage("{FFFFFF}[SunlessTextWrap] AutoEnable: {FF8888}OFF", -1)
+        sampAddChatMessage("{FFFFFF}[SunlessTextWrap] Автовключение: {FF8888}OFF", -1)
     end
 
     sampRegisterChatCommand("trt", function(param)
